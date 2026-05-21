@@ -80,3 +80,6 @@ docker exec mysql-shard-a mysql -uroot -proot shard_a \
 - [x] Coordinator restart recovers any in-flight transactions from etcd
 
 
+this is what the architecture looks like after completing the first milestone exit 
+
+![alt image text](./assets/milestone-1.png)
