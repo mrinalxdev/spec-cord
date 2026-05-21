@@ -1,0 +1,195 @@
+version: "3.9"
+
+# ── Milestone 1: Baseline 2PC ─────────────────────────────────────────────────
+# Milestone 2 will add: chaos-proxy (toxiproxy), speculation log volume
+# Milestone 3 will add: jepsen test container
+# Milestone 4 will add: Raft peer coordinators (coordinator-2, coordinator-3)
+
+networks:
+  txnet:
+    driver: bridge
+
+volumes:
+  etcd-data:
+  shard-a-data:
+  shard-b-data:
+  shard-c-data:
+  prometheus-data:
+
+services:
+
+  # ── Service discovery & consensus metadata ──────────────────────────────────
+  etcd:
+    image: bitnami/etcd:3.5
+    container_name: etcd
+    networks: [txnet]
+    environment:
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+    volumes:
+      - etcd-data:/bitnami/etcd
+    ports:
+      - "2379:2379"
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── MySQL shards ────────────────────────────────────────────────────────────
+  mysql-shard-a:
+    image: mysql:8.0
+    container_name: mysql-shard-a
+    networks: [txnet]
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: shard_a
+      MYSQL_USER: coordinator
+      MYSQL_PASSWORD: coord_pass
+    volumes:
+      - shard-a-data:/var/lib/mysql
+      - ./deploy/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "3306:3306"
+    command: >
+      --server-id=1
+      --log-bin=mysql-bin
+      --binlog-format=ROW
+      --transaction-isolation=SERIALIZABLE
+      --innodb-flush-log-at-trx-commit=1
+      --sync-binlog=1
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mysql-shard-b:
+    image: mysql:8.0
+    container_name: mysql-shard-b
+    networks: [txnet]
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: shard_b
+      MYSQL_USER: coordinator
+      MYSQL_PASSWORD: coord_pass
+    volumes:
+      - shard-b-data:/var/lib/mysql
+      - ./deploy/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "3307:3306"
+    command: >
+      --server-id=2
+      --log-bin=mysql-bin
+      --binlog-format=ROW
+      --transaction-isolation=SERIALIZABLE
+      --innodb-flush-log-at-trx-commit=1
+      --sync-binlog=1
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mysql-shard-c:
+    image: mysql:8.0
+    container_name: mysql-shard-c
+    networks: [txnet]
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: shard_c
+      MYSQL_USER: coordinator
+      MYSQL_PASSWORD: coord_pass
+    volumes:
+      - shard-c-data:/var/lib/mysql
+      - ./deploy/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "3308:3306"
+    command: >
+      --server-id=3
+      --log-bin=mysql-bin
+      --binlog-format=ROW
+      --transaction-isolation=SERIALIZABLE
+      --innodb-flush-log-at-trx-commit=1
+      --sync-binlog=1
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # ── Coordinator (Go) ────────────────────────────────────────────────────────
+  coordinator:
+    build:
+      context: ./coordinator
+      dockerfile: Dockerfile
+    container_name: coordinator
+    networks: [txnet]
+    depends_on:
+      etcd:
+        condition: service_healthy
+      mysql-shard-a:
+        condition: service_healthy
+      mysql-shard-b:
+        condition: service_healthy
+      mysql-shard-c:
+        condition: service_healthy
+    environment:
+      COORDINATOR_ID: "coordinator-1"
+      ETCD_ENDPOINTS: "etcd:2379"
+      SHARD_A_DSN: "coordinator:coord_pass@tcp(mysql-shard-a:3306)/shard_a"
+      SHARD_B_DSN: "coordinator:coord_pass@tcp(mysql-shard-b:3306)/shard_b"
+      SHARD_C_DSN: "coordinator:coord_pass@tcp(mysql-shard-c:3306)/shard_c"
+      GRPC_LISTEN: ":9090"
+      HTTP_LISTEN: ":8080"
+      LOG_LEVEL: "info"
+      # Milestone 2 will add: SPECULATION_ENABLED=true
+    ports:
+      - "9090:9090"   # gRPC
+      - "8080:8080"   # HTTP (metrics + admin)
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Load generator ─────────────────────────────────────────────────────────
+  sysbench:
+    image: severalnines/sysbench:latest
+    container_name: sysbench
+    networks: [txnet]
+    depends_on:
+      coordinator:
+        condition: service_healthy
+    volumes:
+      - ./scripts/sysbench_prepare.sh:/prepare.sh:ro
+      - ./scripts/sysbench_run.sh:/run.sh:ro
+    entrypoint: ["sleep", "infinity"]   # run manually: docker exec sysbench /run.sh
+
+  # ── Observability ──────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: prometheus
+    networks: [txnet]
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"   # Note: may conflict with coordinator gRPC — move coordinator to 9091 if needed
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: grafana
+    networks: [txnet]
+    depends_on: [prometheus]
+    volumes:
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/coordinator.json
+    ports:
+      - "3000:3000"

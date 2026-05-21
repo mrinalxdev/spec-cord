@@ -1,0 +1,90 @@
+{
+  "title": "Spec Coordinator — Milestone 1 (Baseline 2PC)",
+  "uid": "spec-coord-m1",
+  "schemaVersion": 38,
+  "refresh": "5s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Transaction throughput (tx/s)",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(coordinator_tx_total{outcome='committed'}[30s])",
+          "legendFormat": "committed/s"
+        },
+        {
+          "expr": "rate(coordinator_tx_total{outcome='aborted'}[30s])",
+          "legendFormat": "aborted/s"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "End-to-end latency (p50 / p95 / p99)",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(coordinator_tx_latency_seconds_bucket{outcome='committed'}[30s]))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(coordinator_tx_latency_seconds_bucket{outcome='committed'}[30s]))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(coordinator_tx_latency_seconds_bucket{outcome='committed'}[30s]))",
+          "legendFormat": "p99 ← baseline to beat in M2"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Per-shard prepare latency (p99)",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, rate(coordinator_shard_latency_seconds_bucket{phase='prepare'}[30s]))",
+          "legendFormat": "{{shard}} prepare p99"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Per-shard commit latency (p99)",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, rate(coordinator_shard_latency_seconds_bucket{phase='commit'}[30s]))",
+          "legendFormat": "{{shard}} commit p99"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Total committed",
+      "gridPos": { "x": 0, "y": 16, "w": 6, "h": 4 },
+      "targets": [{ "expr": "coordinator_tx_total{outcome='committed'}" }]
+    },
+    {
+      "type": "stat",
+      "title": "Total aborted",
+      "gridPos": { "x": 6, "y": 16, "w": 6, "h": 4 },
+      "targets": [{ "expr": "coordinator_tx_total{outcome='aborted'}" }]
+    },
+    {
+      "type": "stat",
+      "title": "Recovered on startup",
+      "gridPos": { "x": 12, "y": 16, "w": 6, "h": 4 },
+      "targets": [{ "expr": "coordinator_tx_total{outcome='recovered'}" }]
+    },
+    {
+      "type": "stat",
+      "title": "Uncertain (commit failure)",
+      "gridPos": { "x": 18, "y": 16, "w": 6, "h": 4 },
+      "targets": [{ "expr": "coordinator_tx_total{outcome='uncertain'}" }],
+      "options": { "colorMode": "background" },
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}] } } }
+    }
+  ]
+}
