@@ -1,4 +1,4 @@
-module github.com/yourorg/spec-coordinator
+module github.com/mrinalxdev/spec-coordinator
 
 go 1.22
 

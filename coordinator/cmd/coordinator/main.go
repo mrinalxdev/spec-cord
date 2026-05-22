@@ -17,11 +17,11 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 
-	"github.com/yourorg/spec-coordinator/internal/config"
-	"github.com/yourorg/spec-coordinator/internal/metrics"
-	"github.com/yourorg/spec-coordinator/internal/shard"
-	"github.com/yourorg/spec-coordinator/internal/twopc"
-	"github.com/yourorg/spec-coordinator/internal/txlog"
+	"github.com/mrinalxdev/spec-coordinator/internal/config"
+	"github.com/mrinalxdev/spec-coordinator/internal/metrics"
+	"github.com/mrinalxdev/spec-coordinator/internal/shard"
+	"github.com/mrinalxdev/spec-coordinator/internal/twopc"
+	"github.com/mrinalxdev/spec-coordinator/internal/txlog"
 )
 
 func main() {

@@ -10,10 +10,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/yourorg/spec-coordinator/internal/config"
-	"github.com/yourorg/spec-coordinator/internal/metrics"
-	"github.com/yourorg/spec-coordinator/internal/shard"
-	"github.com/yourorg/spec-coordinator/internal/txlog"
+	"github.com/mrinalxdev/spec-coordinator/internal/config"
+	"github.com/mrinalxdev/spec-coordinator/internal/metrics"
+	"github.com/mrinalxdev/spec-coordinator/internal/shard"
+	"github.com/mrinalxdev/spec-coordinator/internal/txlog"
 )
 type TransferOp struct {
 	ShardID   string
