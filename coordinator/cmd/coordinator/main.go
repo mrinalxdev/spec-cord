@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -31,19 +30,32 @@ func main() {
 	log := buildLogger(cfg.LogLevel)
 	defer log.Sync()
 	log.Info("coordinator starting", zap.String("id", cfg.CoordinatorID))
-
 	etcdClient, err := clientv3.New(clientv3.Config{
 		Endpoints:   cfg.EtcdEndpointList(),
 		DialTimeout: 5 * time.Second,
 	})
 	must(err, "connect etcd")
 	defer etcdClient.Close()
+
 	txLog := txlog.New(etcdClient)
-	shardPool, err := shard.NewPool(cfg.ShardDSNs(), log)
-	must(err, "connect shards")
+	var shardPool *shard.Pool
+	for attempt := 1; attempt <= 12; attempt++ {
+		shardPool, err = shard.NewPool(cfg.ShardDSNs(), log)
+		if err == nil {
+			break
+		}
+		log.Warn("shard pool not ready, retrying",
+			zap.Int("attempt", attempt),
+			zap.Error(err),
+		)
+		time.Sleep(5 * time.Second)
+	}
+	must(err, "connect shards after retries")
+
 	reg := prometheus.NewRegistry()
 	m := metrics.New(reg)
 	coord := twopc.New(cfg, log, txLog, shardPool, m)
+
 	recoverCtx, recoverCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	must(coord.Recover(recoverCtx), "recover")
 	recoverCancel()
@@ -56,7 +68,6 @@ func main() {
 		fmt.Fprint(w, "ok")
 	})
 
-	// POST /transfer  body: {"ops":[{"shard_id":"shard-a","account_id":1,"delta":-50.0},{"shard_id":"shard-b","account_id":10001,"delta":50.0}]}
 	mux.HandleFunc("/transfer", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -110,13 +121,10 @@ func main() {
 			log.Fatal("HTTP server error", zap.Error(err))
 		}
 	}()
-
 	grpcLis, err := net.Listen("tcp", cfg.GRPCListen)
 	must(err, "gRPC listen")
-	log.Info("gRPC port reserved", zap.String("addr", cfg.GRPCListen),
-		zap.String("note", "gRPC service registered in Milestone 2"))
-	_ = grpcLis 
-
+	log.Info("gRPC port reserved", zap.String("addr", cfg.GRPCListen))
+	_ = grpcLis
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -138,8 +146,8 @@ func buildLogger(level string) *zap.Logger {
 	default:
 		cfg.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
 	}
-	log, _ := cfg.Build()
-	return log
+	l, _ := cfg.Build()
+	return l
 }
 
 func must(err error, msg string) {
@@ -148,5 +156,3 @@ func must(err error, msg string) {
 		os.Exit(1)
 	}
 }
-
-var _ = strconv.Itoa

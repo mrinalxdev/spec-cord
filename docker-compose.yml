@@ -1,10 +1,3 @@
-version: "3.9"
-
-# ── Milestone 1: Baseline 2PC ─────────────────────────────────────────────────
-# Milestone 2 will add: chaos-proxy (toxiproxy), speculation log volume
-# Milestone 3 will add: jepsen test container
-# Milestone 4 will add: Raft peer coordinators (coordinator-2, coordinator-3)
-
 networks:
   txnet:
     driver: bridge
@@ -18,28 +11,34 @@ volumes:
 
 services:
 
-  # ── Service discovery & consensus metadata ──────────────────────────────────
   etcd:
-    image: bitnami/etcd:3.5
+    image: gcr.io/etcd-development/etcd:v3.5.13
+    platform: linux/arm64
     container_name: etcd
     networks: [txnet]
     environment:
-      ALLOW_NONE_AUTHENTICATION: "yes"
-      ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
+      ETCD_NAME: etcd0
+      ETCD_DATA_DIR: /etcd-data
       ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://etcd:2380
+      ETCD_INITIAL_CLUSTER: etcd0=http://etcd:2380
+      ETCD_INITIAL_CLUSTER_STATE: new
+      ETCD_INITIAL_CLUSTER_TOKEN: spec-coordinator-cluster
     volumes:
-      - etcd-data:/bitnami/etcd
+      - etcd-data:/etcd-data
     ports:
       - "2379:2379"
     healthcheck:
-      test: ["CMD", "etcdctl", "endpoint", "health"]
+      test: ["CMD", "/usr/local/bin/etcdctl", "--endpoints=http://localhost:2379", "endpoint", "health"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  # ── MySQL shards ────────────────────────────────────────────────────────────
   mysql-shard-a:
     image: mysql:8.0
+    platform: linux/arm64
     container_name: mysql-shard-a
     networks: [txnet]
     environment:
@@ -59,14 +58,17 @@ services:
       --transaction-isolation=SERIALIZABLE
       --innodb-flush-log-at-trx-commit=1
       --sync-binlog=1
+  
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      test: ["CMD", "mysql", "-ucoordinator", "-pcoord_pass", "-h", "127.0.0.1", "shard_a", "-e", "SELECT 1"]
       interval: 5s
       timeout: 5s
-      retries: 20
+      retries: 30
+      start_period: 30s
 
   mysql-shard-b:
     image: mysql:8.0
+    platform: linux/arm64
     container_name: mysql-shard-b
     networks: [txnet]
     environment:
@@ -87,13 +89,15 @@ services:
       --innodb-flush-log-at-trx-commit=1
       --sync-binlog=1
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      test: ["CMD", "mysql", "-ucoordinator", "-pcoord_pass", "-h", "127.0.0.1", "shard_b", "-e", "SELECT 1"]
       interval: 5s
       timeout: 5s
-      retries: 20
+      retries: 30
+      start_period: 30s
 
   mysql-shard-c:
     image: mysql:8.0
+    platform: linux/arm64
     container_name: mysql-shard-c
     networks: [txnet]
     environment:
@@ -114,16 +118,19 @@ services:
       --innodb-flush-log-at-trx-commit=1
       --sync-binlog=1
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      test: ["CMD", "mysql", "-ucoordinator", "-pcoord_pass", "-h", "127.0.0.1", "shard_c", "-e", "SELECT 1"]
       interval: 5s
       timeout: 5s
-      retries: 20
+      retries: 30
+      start_period: 30s
 
-  # ── Coordinator (Go) ────────────────────────────────────────────────────────
   coordinator:
     build:
       context: ./coordinator
       dockerfile: Dockerfile
+      args:
+        TARGETARCH: arm64
+    platform: linux/arm64
     container_name: coordinator
     networks: [txnet]
     depends_on:
@@ -141,22 +148,21 @@ services:
       SHARD_A_DSN: "coordinator:coord_pass@tcp(mysql-shard-a:3306)/shard_a"
       SHARD_B_DSN: "coordinator:coord_pass@tcp(mysql-shard-b:3306)/shard_b"
       SHARD_C_DSN: "coordinator:coord_pass@tcp(mysql-shard-c:3306)/shard_c"
-      GRPC_LISTEN: ":9090"
+      GRPC_LISTEN: ":9091"
       HTTP_LISTEN: ":8080"
       LOG_LEVEL: "info"
-      # Milestone 2 will add: SPECULATION_ENABLED=true
     ports:
-      - "9090:9090"   # gRPC
-      - "8080:8080"   # HTTP (metrics + admin)
+      - "9091:9091"
+      - "8080:8080"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  # ── Load generator ─────────────────────────────────────────────────────────
   sysbench:
-    image: severalnines/sysbench:latest
+    image: ubuntu:22.04
+    platform: linux/arm64
     container_name: sysbench
     networks: [txnet]
     depends_on:
@@ -165,24 +171,25 @@ services:
     volumes:
       - ./scripts/sysbench_prepare.sh:/prepare.sh:ro
       - ./scripts/sysbench_run.sh:/run.sh:ro
-    entrypoint: ["sleep", "infinity"]   # run manually: docker exec sysbench /run.sh
+    entrypoint: ["/bin/bash", "-c", "apt-get update -qq && apt-get install -y -qq curl bc > /dev/null 2>&1 && sleep infinity"]
 
-  # ── Observability ──────────────────────────────────────────────────────────
   prometheus:
     image: prom/prometheus:v2.51.0
+    platform: linux/arm64
     container_name: prometheus
     networks: [txnet]
     volumes:
       - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     ports:
-      - "9090:9090"   # Note: may conflict with coordinator gRPC — move coordinator to 9091 if needed
+      - "9090:9090"
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.retention.time=7d"
 
   grafana:
     image: grafana/grafana:10.4.0
+    platform: linux/arm64
     container_name: grafana
     networks: [txnet]
     depends_on: [prometheus]

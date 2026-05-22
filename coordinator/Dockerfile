@@ -1,6 +1,8 @@
-FROM golang:1.22-alpine AS builder
+FROM --platform=linux/arm64 golang:1.22-alpine AS builder
 
-RUN apk add --no-cache git ca-certificates
+ARG TARGETARCH=arm64
+
+RUN apk add --no-cache git ca-certificates wget
 
 WORKDIR /src
 
@@ -8,15 +10,15 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
     go build -ldflags="-s -w" -o /bin/coordinator ./cmd/coordinator
 
+FROM --platform=linux/arm64 alpine:3.19
 
-FROM scratch
+RUN apk add --no-cache wget ca-certificates
 
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /bin/coordinator /coordinator
 
-EXPOSE 8080 9090
+EXPOSE 8080 9091
 
 ENTRYPOINT ["/coordinator"]

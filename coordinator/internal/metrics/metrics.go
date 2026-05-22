@@ -34,7 +34,6 @@ func New(reg prometheus.Registerer) *Metrics {
 			Buckets: []float64{0.0005, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5},
 		}, []string{"shard", "phase"}),
 
-		// ── Milestone 2 stubs ────────────────────────────────────────────────
 		SpeculationTotal: factory.NewCounterVec(prometheus.CounterOpts{
 			Name: "coordinator_speculation_total",
 			Help: "Speculative commit attempts by result (hit/miss) — active from Milestone 2",
