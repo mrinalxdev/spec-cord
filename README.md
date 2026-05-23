@@ -83,3 +83,22 @@ docker exec mysql-shard-a mysql -uroot -proot shard_a \
 this is what the architecture looks like after completing the first milestone exit 
 
 ![alt image text](./assets/milestone-1.png)
+
+
+# !! BENCHMARKING FOR M1 before moving to M2
+
+```bash
+==> Aggregating latency results...
+────────────────────────────────────
+  Baseline 2PC Latency Results
+────────────────────────────────────
+  Total requests : 4000
+  p50 latency    : 21ms
+  p95 latency    : 30ms
+  p99 latency    : 46ms   
+────────────────────────────────────
+
+==> Metrics: http://localhost:9090
+==> Grafana:  http://localhost:3000
+
+```

@@ -30,7 +30,7 @@ run_worker() {
     for i in $(seq 1 $REQUESTS_PER_THREAD); do
         FROM_ID=$((RANDOM % 10000 + 1))
         TO_ID=$((RANDOM % 10000 + 10001))
-        AMOUNT=$(echo "scale=2; ($RANDOM % 100 + 1) / 10" | bc)
+        AMOUNT=$(printf "%.2f" $(echo "scale=2; ($RANDOM % 100 + 1) / 10" | bc))
         RESULT=$(curl -s \
             -o /tmp/resp_${tid}.json \
             -w "%{http_code} %{time_total}" \
@@ -50,6 +50,10 @@ run_worker() {
             echo "$TIME_MS" >> /tmp/latencies_${tid}.txt
         else
             errors=$((errors + 1))
+        fi
+
+        if [ "$HTTP_CODE" != "200" ]; then
+            echo "ERROR Response: $(cat /tmp/resp_${tid}.json)" >&2
         fi
     done
 
