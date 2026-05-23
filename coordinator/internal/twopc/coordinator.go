@@ -15,10 +15,11 @@ import (
 	"github.com/mrinalxdev/spec-coordinator/internal/shard"
 	"github.com/mrinalxdev/spec-coordinator/internal/txlog"
 )
+
 type TransferOp struct {
-	ShardID   string
-	AccountID int64
-	Delta     float64
+	ShardID   string  `json:"shard_id"`
+	AccountID int64   `json:"account_id"`
+	Delta     float64 `json:"delta"`
 }
 type Coordinator struct {
 	cfg     *config.Config
