@@ -102,3 +102,10 @@ this is what the architecture looks like after completing the first milestone ex
 ==> Grafana:  http://localhost:3000
 
 ```
+
+
+## Milestone 2 exit criteria
+
+- [ ] Speculative p99 < baseline p99 
+- [ ] speculation hit rate > 90% (no failures)
+- [ ] Mis speculation rollback preservees balance sum

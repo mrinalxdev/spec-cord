@@ -20,7 +20,18 @@ type Config struct {
 	CommitTimeoutMs   int `envconfig:"COMMIT_TIMEOUT_MS"  default:"2000"`
 	TxTotalTimeoutMs  int `envconfig:"TX_TOTAL_TIMEOUT_MS" default:"10000"`
 	LogLevel string `envconfig:"LOG_LEVEL" default:"info"`
+
+	SpeculationEnabled bool `envconfig:"SPECULATION_ENABLED" defualt:"false"`
+	SpeculationTimeoutMs int `envconfig:"SPECULATION_TIMEOUT_MS" default:"5000"`
 }
+
+/*
+ * adding a helper method for the timeout 
+ */
+ func (c *Config) SpeculationTimeout() time.Duration {
+ 	return time.Duration(c.SpeculationTimeoutMs) * time.Millisecond
+ }
+
 
 func Load() (*Config, error) {
 	var c Config

@@ -151,6 +151,8 @@ services:
       GRPC_LISTEN: ":9091"
       HTTP_LISTEN: ":8080"
       LOG_LEVEL: "info"
+      SPECULATION_ENABLED : "true"
+      SPECULATION_TIMEOUT_MS : "5000"
     ports:
       - "9091:9091"
       - "8080:8080"
