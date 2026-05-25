@@ -4,7 +4,7 @@ Based on: *On the Correctness of Speculative Consensus* (arXiv:2204.03552)
 
 ```bash
 # 1. Clone and enter
-git clone https://github.com/yourorg/spec-coordinator
+git clone https://github.com/mrinalxdev/spec-coordinator
 cd spec-coordinator
 
 # 2. Build and bring everything up
@@ -14,8 +14,8 @@ docker compose up --build -d
 bash scripts/sysbench_prepare.sh
 
 # 4. Verify everything is healthy
-curl http://localhost:8080/healthz          # → ok
-curl http://localhost:8080/admin/shards    # → {"shard-a":"healthy",...}
+curl http://localhost:8080/healthz          # return -- ok
+curl http://localhost:8080/admin/shards    # return -- {"shard-a":"healthy",...}
 
 # 5. Run a single test transaction (shard-a → shard-b transfer)
 curl -X POST http://localhost:8080/transfer \

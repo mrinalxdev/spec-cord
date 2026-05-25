@@ -1,5 +1,3 @@
-// coordinator/internal/shard/undo.go
-
 package shard
 
 import (

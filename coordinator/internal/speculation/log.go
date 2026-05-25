@@ -1,4 +1,4 @@
-package specualtion
+package speculation
 
 import (
 	"context"
@@ -15,7 +15,7 @@ type SpecState string
 
 const (
 	SpecExecuting SpecState = "SPEC_EXECUTING"
-	SpecCommitted SpecState = "SPEC_COMITTED"
+	SpecCommitted SpecState = "SPEC_COMMITTED"
 	SpecRolledBack SpecState = "SPEC_ROLLED_BACK"
 )
 
@@ -27,6 +27,7 @@ type SpecRecord struct {
 	State    SpecState `json:"state"`
 	StartedAt   time.Time `json:"started_at"`
 	ExpiresAt   time.Time `json:"expires_at"`
+	UpdatedAt time.Time `json:"updated_at,omitempty"`
 	ConflictDetected bool `json:"conflict_detected,omitempty"`
 	RollbackReason   string `json:"rollback_reason,omitempty"`
 }
@@ -47,9 +48,9 @@ func New(client *clientv3.Client, logger *zap.Logger, prefix string) *Log {
 	}
 
 	return &Log {
-		client : client,
-		prefix : prefix,
-		log : logger.With(zap.String("component", "speculation_log")),
+		client: client,
+		prefix: prefix,
+		log: logger.With(zap.String("component","speculation_log")),
 	}
 }
 

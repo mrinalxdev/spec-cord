@@ -81,3 +81,11 @@ func (c *Config) EtcdEndpointList() []string {
 	}
 	return out
 }
+
+func (c *Config) UndoLogTTL() time.Duration {
+	return time.Duration(c.UndoLogTTLHours) * time.Hour
+}
+
+func (c *Config) SpecConflictWindow() time.Duration {
+	return time.Duration(c.SpecConflictWindowMs) * time.Millisecond
+}
