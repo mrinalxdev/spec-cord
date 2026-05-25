@@ -106,11 +106,11 @@ this is what the architecture looks like after completing the first milestone ex
 
 ## Milestone 2 exit criteria
 
-- [ ] Speculative p99 measurably lower than baseline p99 from M1
-- [ ] Speculation hit rate > 90% under no-failure conditions  
-- [ ] Mis-speculation rollback leaves balance sum unchanged
-- [ ] All new states (SPEC_EXECUTING, SPEC_COMMITTED, SPEC_ROLLED_BACK) implemented
-- [ ] Undo log durability verified via crash-recovery tests
-- [ ] Metrics exposed for speculation hit/miss/rollback rates
-- [ ] Grafana dashboard updated with speculation panels
-- [ ] Side-by-side benchmark script validates improvement
+- [x] Speculative p99 measurably lower than baseline p99 from M1
+- [x] Speculation hit rate > 90% under no-failure conditions  
+- [x] Mis-speculation rollback leaves balance sum unchanged
+- [x] All new states (SPEC_EXECUTING, SPEC_COMMITTED, SPEC_ROLLED_BACK) implemented
+- [x] Undo log durability verified via crash-recovery tests
+- [x] Metrics exposed for speculation hit/miss/rollback rates
+- [x] Grafana dashboard updated with speculation panels
+- [x] Side-by-side benchmark script validates improvement
