@@ -19,6 +19,7 @@ import (
 	"github.com/mrinalxdev/spec-coordinator/internal/config"
 	"github.com/mrinalxdev/spec-coordinator/internal/metrics"
 	"github.com/mrinalxdev/spec-coordinator/internal/shard"
+	"github.com/mrinalxdev/spec-coordinator/internal/speculation"
 	"github.com/mrinalxdev/spec-coordinator/internal/twopc"
 	"github.com/mrinalxdev/spec-coordinator/internal/txlog"
 )
@@ -38,6 +39,12 @@ func main() {
 	defer etcdClient.Close()
 
 	txLog := txlog.New(etcdClient)
+
+	var specLog *speculation.Log
+	if cfg.SpeculationEnabled {
+		specLog = speculation.New(etcdClient, log, "")
+		defer specLog.Close()
+	}
 	var shardPool *shard.Pool
 	for attempt := 1; attempt <= 12; attempt++ {
 		shardPool, err = shard.NewPool(cfg.ShardDSNs(), log)
@@ -54,7 +61,7 @@ func main() {
 
 	reg := prometheus.NewRegistry()
 	m := metrics.New(reg)
-	coord := twopc.New(cfg, log, txLog, shardPool, m)
+	coord := twopc.New(cfg, log, txLog, shardPool, m, specLog)
 
 	recoverCtx, recoverCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	must(coord.Recover(recoverCtx), "recover")
